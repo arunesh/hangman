@@ -1,3 +1,20 @@
+ The game is live at https://balloon-hangman.aruneshm.workers.dev. I loaded the page, the word list and the audio files from that link, and all three come back fine. Anyone with the link can play it in a
+  browser, on a tablet or phone too.
+
+  How the speech works there: your ElevenLabs key isn't on Cloudflare at all. I recorded all 385 lines the game can say (about 16k characters) as MP3 files and uploaded them with the page. So there's nothing
+  secret to leak, and visitors can't use up your ElevenLabs credits.
+
+  Things to know
+  - Cloudflare setup: I deployed with Cloudflare's CLI. Wrangler set this up as a Worker that only serves files, not a classic Pages project, so the address ends in .workers.dev. It created wrangler.jsonc in the
+    project folder for this.
+  - Your quota: your ElevenLabs key can't show the account quota, so I couldn't check your balance. The recording finished without errors.
+  - The local version still works the same way (python3 server.py).
+
+  To update after changing words or phrases:
+  cd ~/sw/hangman
+  python3 build.py        # records only new phrases; ones already recorded are reused
+  npx wrangler deploy
+------------------------------------------------------------------------------------------------------------------------
 
 ⏺ The hangman game is running, and I've opened it in your browser at http://127.0.0.1:8765. ElevenLabs speech works: I tested one phrase and got audio back.
 

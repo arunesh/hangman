@@ -1,3 +1,12 @@
+⏺ I added README.md to ~/sw/hangman with these sections:
+
+  - Play locally: start the server and open it on port 8765.
+  - Deploy to Cloudflare: python3 build.py, then npx wrangler deploy, plus logging in to Cloudflare the first time.
+  - Adding or changing words: how the word lists in public/words.js are laid out, and that you rebuild and deploy afterward.
+  - Voice: how to switch to another ElevenLabs voice. Doing that re-records every phrase, about 16k characters.
+
+  It also has the live link and a short table of what each file does.
+------------------------------------------------------------------------------------------------------------------------
  The game is live at https://balloon-hangman.aruneshm.workers.dev. I loaded the page, the word list and the audio files from that link, and all three come back fine. Anyone with the link can play it in a
   browser, on a tablet or phone too.
 

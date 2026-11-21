@@ -2,8 +2,17 @@
 
 A kid-friendly hangman game with spoken words, using ElevenLabs text-to-speech. A bear floats on balloons, and each wrong guess pops one.
 
-- **Little Kid (age 5):** 3–4 letter words with a picture, and the word is read aloud. 8 balloons.
-- **Big Kid (age 8):** 5–8 letter words with a spoken clue. 6 balloons.
+- **Little Kid (age 5):** words with a picture, and the word is read aloud.
+- **Big Kid (age 8):** longer words with a spoken clue.
+
+Each level has three difficulties. Tap the level badge at the top of the game to switch; winning 3 words in a row moves up one step automatically. The choice is remembered per level.
+
+| | 🟢 Easy | 🟡 Medium | 🔴 Hard |
+|---|---|---|---|
+| Little Kid | 3 letters, 8 balloons | 4 letters, 7 balloons | 5 letters, 6 balloons |
+| Big Kid | 5–6 letters, 7 balloons | 7–8 letters, 6 balloons | 9–10 letters, 5 balloons, clue costs a balloon |
+
+Words are shuffled each round, and recently played words (remembered across visits) are held back so the same ones don't come back soon.
 
 Live site: https://balloon-hangman.aruneshm.workers.dev
 
@@ -43,7 +52,7 @@ You need to be logged in to Cloudflare first: run `npx wrangler login` once, and
 
 ## Adding or changing words
 
-Edit the `LITTLE` or `BIG` lists in `public/words.js`:
+Edit the `LITTLE` or `BIG` lists in `public/words.js`. A word's length decides its difficulty (the `len` ranges in `LEVELS`), so there's no need to tag it:
 
 - Little: `["word", "emoji"]`
 - Big: `["word", "emoji", "A short clue sentence."]`

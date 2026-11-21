@@ -34,6 +34,7 @@
   .level-btn strong { font-size: 30px; display: block; margin: 6px 0; }
   .level-btn.l5 { border: 5px solid #ffb347; }
   .level-btn.l8 { border: 5px solid #6c9bff; }
+  .start-hint { font-size: 18px !important; margin: 28px 0 0 !important; opacity: .8; }
 
   /* ---------- game screen ---------- */
   #game { display: none; max-width: 1100px; margin: 0 auto; padding: 12px 16px 24px; }
@@ -60,6 +61,7 @@
   #picture { font-size: 96px; line-height: 1.1; }
   #clue { font-size: 24px; }
   .speak-btn { background: var(--gold); border-radius: 999px; padding: 10px 22px; font-size: 22px; font-weight: 600; margin-top: 8px; box-shadow: 0 4px 0 rgba(0,0,0,.12); color: var(--ink); }
+  .speak-btn:disabled { opacity: .5; cursor: default; }
   .speak-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.12); }
 
   #word { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
@@ -67,6 +69,7 @@
     width: 58px; height: 70px; border-bottom: 6px solid var(--ink); font-size: 50px; font-weight: 700;
     display: flex; align-items: center; justify-content: center; text-transform: uppercase;
   }
+  #word.long .slot { width: 46px; height: 60px; font-size: 40px; }
   .slot.show { animation: grow .3s; color: #1f7a3a; }
   .slot.missed { color: var(--accent); }
   @keyframes grow { from { transform: scale(.2); } }
@@ -99,6 +102,9 @@
     .speak-btn { font-size: 17px; padding: 7px 16px; margin-top: 4px; }
     #word { gap: 6px; }
     .slot { width: 36px; height: 48px; font-size: 34px; border-bottom-width: 5px; }
+    #word.long { gap: 4px; }
+    #word.long .slot { width: 28px; height: 40px; font-size: 26px; border-bottom-width: 4px; }
+    .wide { display: none; }
     #message { font-size: 22px; min-height: 0; }
     #next { font-size: 22px; padding: 10px 28px; }
     #keys { gap: 6px; }
@@ -128,12 +134,13 @@
       <span class="big">🚀</span><strong>Big Kid</strong>Age 8 · longer words · clues
     </button>
   </div>
+  <p class="start-hint">Win 3 in a row and the words get harder. Tap 🟢 Easy / 🟡 Medium / 🔴 Hard in the game to choose.</p>
 </section>
 
 <section id="game">
   <div class="topbar">
     <button class="pill btn" id="home">🏠 Levels</button>
-    <div class="pill" id="levelName"></div>
+    <button class="pill btn" id="diff" title="Change difficulty"><span id="lvlIcon"></span><span class="wide"> <span id="lvlName"></span> ·</span> <span id="diffName"></span> ▾</button>
     <div class="pill">⭐ <span id="stars">0</span></div>
     <button class="pill btn" id="mute">🔊</button>
   </div>
@@ -204,32 +211,37 @@ function fetchSpeech(text) {
 }
 
 let speakToken = 0;
-async function speak(text) {
+async function speak(text, then) {
   if (muted) return;
   const token = ++speakToken;           // newest request wins
   player.pause(); tts.cancel();
+  const next = () => { if (then && token === speakToken) speak(then); };
   try {
     const url = await fetchSpeech(text);
     if (token !== speakToken) return;
     player.src = url;
+    player.onended = next;
     await player.play();
   } catch (e) {
     if (token !== speakToken) return;
     // Fallback: the browser's built-in voice
     if (!window.SpeechSynthesisUtterance) return;
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.9; u.pitch = 1.1;
+    u.rate = 0.9; u.pitch = 1.1; u.onend = next;
     tts.speak(u);
   }
 }
 
 
 // ---------------- state ----------------
-let level, entry, guessed, wrong, over, bag = [];
+let level, diff, entry, guessed, wrong, over, clueShown, streak = 0, bag = [];
 const $ = id => document.getElementById(id);
 
 function loadStars(l) { try { return +localStorage.getItem("stars-" + l) || 0; } catch { return 0; } }
 function saveStars(l, n) { try { localStorage.setItem("stars-" + l, n); } catch {} }
+function loadDiff(l) { try { return Math.min(2, Math.max(0, +localStorage.getItem("diff-" + l) || 0)); } catch { return 0; } }
+function saveDiff(l, d) { try { localStorage.setItem("diff-" + l, d); } catch {} }
+const tier = () => LEVELS[level].tiers[diff];
 
 function shuffle(a) {   // Fisher–Yates: every order equally likely
   for (let i = a.length - 1; i > 0; i--) {
@@ -240,11 +252,11 @@ function shuffle(a) {   // Fisher–Yates: every order equally likely
 }
 
 // Remember recently played words (across visits) so they don't come back soon.
-function loadRecent() { try { return JSON.parse(localStorage.getItem("recent-" + level)) || []; } catch { return []; } }
-function saveRecent(r) { try { localStorage.setItem("recent-" + level, JSON.stringify(r)); } catch {} }
+function loadRecent() { try { return JSON.parse(localStorage.getItem(`recent-${level}-${diff}`)) || []; } catch { return []; } }
+function saveRecent(r) { try { localStorage.setItem(`recent-${level}-${diff}`, JSON.stringify(r)); } catch {} }
 
 function pickWord() {
-  const list = LEVELS[level].list;
+  const list = wordsFor(level, diff);
   const recent = loadRecent();
   if (!bag.length) {
     // Fresh shuffle, with recently seen words pushed to the back of the line.
@@ -258,17 +270,24 @@ function pickWord() {
 }
 
 function startLevel(l) {
-  level = l; bag = [];
+  level = l; streak = 0;
   $("start").style.display = "none"; $("game").style.display = "block";
-  $("levelName").textContent = LEVELS[l].name;
+  $("lvlIcon").textContent = LEVELS[l].icon; $("lvlName").textContent = LEVELS[l].name;
   $("stars").textContent = loadStars(l);
+  setDiff(loadDiff(l));
   newWord();
+}
+
+function setDiff(d) {
+  diff = d; bag = [];
+  saveDiff(level, d);
+  $("diffName").textContent = tier().label;
 }
 
 function newWord() {
   const raw = pickWord();
   entry = { word: raw[0], emoji: raw[1], clue: raw[2] };
-  guessed = new Set(); wrong = 0; over = false;
+  guessed = new Set(); wrong = 0; over = false; clueShown = !tier().hiddenClue;
   $("message").textContent = ""; $("next").style.display = "none";
   $("floater").style.transform = "";
   $("mouth").setAttribute("d", "M-7 6 Q0 13 7 6");
@@ -279,18 +298,30 @@ function newWord() {
     $("hear").textContent = "🔈 Hear the word";
   } else {
     $("picture").style.display = "none";
-    $("clue").textContent = "💡 " + entry.clue;
-    $("hear").textContent = "🔈 Hear the clue";
+    showClue();
   }
   drawBalloons(); drawWord(); drawKeys(); updateTries();
-  speak(Say.intro(level, entry));
+  speak(Say.intro(level, entry, !clueShown));
   // Warm up the end-of-round phrases so they play instantly.
   fetchSpeech(Say.win(entry)).catch(() => {});
 }
 
+function showClue() {
+  $("clue").textContent = clueShown ? "💡 " + entry.clue : "No clue yet. Can you guess it without one?";
+  $("hear").textContent = clueShown ? "🔈 Hear the clue" : "💡 Get a clue (costs 1 🎈)";
+}
+
+// Hard mode: the clue costs a balloon. Never sell the last one.
+function buyClue() {
+  if (over || clueShown || tier().balloons - wrong <= 1) return;
+  clueShown = true; wrong++;
+  popBalloon(); updateTries(); showClue();
+  speak(entry.clue);
+}
+
 // ---------------- drawing ----------------
 function drawBalloons() {
-  const n = LEVELS[level].balloons, g = $("balloons");
+  const n = tier().balloons, g = $("balloons");
   g.innerHTML = "";
   const hand = { x: 150, y: 285 };
   for (let i = 0; i < n; i++) {
@@ -319,12 +350,13 @@ function popBalloon() {
   t.setAttribute("class", "poof"); t.textContent = "POP!";
   $("effects").appendChild(t); setTimeout(() => t.remove(), 800);
   // Bear sinks a little with each pop.
-  const frac = wrong / LEVELS[level].balloons;
+  const frac = wrong / tier().balloons;
   $("floater").style.transform = `translateY(${frac * 40}px)`;
 }
 
 function drawWord() {
   $("word").innerHTML = "";
+  $("word").classList.toggle("long", entry.word.length > 8);
   for (const ch of entry.word) {
     const s = document.createElement("div");
     s.className = "slot";
@@ -344,8 +376,9 @@ function drawKeys() {
 }
 
 function updateTries() {
-  const left = LEVELS[level].balloons - wrong;
+  const left = tier().balloons - wrong;
   $("tries").textContent = "🎈 × " + left;
+  $("hear").disabled = !clueShown && (left <= 1 || over);
 }
 
 // ---------------- game logic ----------------
@@ -364,7 +397,7 @@ function guess(ch) {
   } else {
     key.classList.add("wrong");
     wrong++; popBalloon(); updateTries();
-    if (wrong >= LEVELS[level].balloons) return lose();
+    if (wrong >= tier().balloons) return lose();
     speak(Say.no(ch));
   }
 }
@@ -372,14 +405,24 @@ function guess(ch) {
 function win() {
   over = true;
   const n = loadStars(level) + 1; saveStars(level, n); $("stars").textContent = n;
-  $("message").textContent = "🎉 You did it! 🎉";
+  reveal();
+  streak++;
+  let levelUp = streak >= WINS_TO_LEVEL_UP && diff < LEVELS[level].tiers.length - 1;
+  if (levelUp) { streak = 0; setDiff(diff + 1); }
+  $("message").textContent = levelUp ? "🎉 Level up! Now " + tier().label : "🎉 You did it! 🎉";
+  speak(Say.win(entry), levelUp ? Say.levelUp : null); confetti();
+}
+
+// End of round: show the picture and clue, offer the next word.
+function reveal() {
   if (level === "big") { $("picture").textContent = entry.emoji; $("picture").style.display = ""; }
+  if (!clueShown) { clueShown = true; showClue(); }
+  $("hear").disabled = false;
   $("next").style.display = "inline-block";
-  speak(Say.win(entry)); confetti();
 }
 
 function lose() {
-  over = true;
+  over = true; streak = 0;
   $("floater").style.transform = "translateY(70px)";   // bear lands softly on the grass
   $("mouth").setAttribute("d", "M-7 10 Q0 4 7 10");
   // Reveal the missing letters in orange.
@@ -389,9 +432,8 @@ function lose() {
     s.className = "slot " + (guessed.has(ch) ? "show" : "missed"); s.textContent = ch;
     $("word").appendChild(s);
   }
-  if (level === "big") { $("picture").textContent = entry.emoji; $("picture").style.display = ""; }
+  reveal();
   $("message").textContent = "The word was " + entry.word.toUpperCase();
-  $("next").style.display = "inline-block";
   speak(Say.lose(entry));
 }
 
@@ -412,7 +454,8 @@ function confetti() {
 document.querySelectorAll(".level-btn").forEach(b => b.onclick = () => startLevel(b.dataset.level));
 $("home").onclick = () => { player.pause(); tts.cancel(); $("game").style.display = "none"; $("start").style.display = "flex"; };
 $("next").onclick = newWord;
-$("hear").onclick = () => speak(Say.hear(level, entry));
+$("hear").onclick = () => clueShown ? speak(Say.hear(level, entry)) : buyClue();
+$("diff").onclick = () => { streak = 0; setDiff((diff + 1) % LEVELS[level].tiers.length); newWord(); };
 $("mute").onclick = () => {
   muted = !muted; $("mute").textContent = muted ? "🔇" : "🔊";
   if (muted) { player.pause(); tts.cancel(); }

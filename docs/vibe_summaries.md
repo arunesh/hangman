@@ -1,3 +1,37 @@
+ Each level now has three difficulty settings, and there are about twice as many words to draw from. The changes are in public/words.js, public/index.html and the README. Nothing is committed or deployed yet.
+
+  Why it felt predictable: the game already shuffled the words and held back recently played ones. The real problem was the small lists: only 40 words per level, so the same ones kept coming back. There are now
+  92 Little Kid words and 97 Big Kid words.
+
+  Difficulty control
+  - The level badge at the top of the game (e.g. "🚀 Big Kid · 🟢 Easy ▾") now switches between Easy, Medium and Hard. Tapping it starts a new word at the new setting.
+  - Winning 3 words in a row moves up one step automatically. The game says "Level up! Here come some harder words!"
+  - The setting is remembered separately for each level.
+
+  ┌────────────┬─────────────────────────┬─────────────────────────┬───────────────────────────────────────┐
+  │            │         🟢 Easy         │        🟡 Medium        │                🔴 Hard                │
+  ├────────────┼─────────────────────────┼─────────────────────────┼───────────────────────────────────────┤
+  │ Little Kid │ 3 letters, 8 balloons   │ 4 letters, 7 balloons   │ 5 letters, 6 balloons                 │
+  ├────────────┼─────────────────────────┼─────────────────────────┼───────────────────────────────────────┤
+  │ Big Kid    │ 5–6 letters, 7 balloons │ 7–8 letters, 6 balloons │ 9–10 letters, 5 balloons, clue hidden │
+  └────────────┴─────────────────────────┴─────────────────────────┴───────────────────────────────────────┘
+
+  - Big Kid Hard: the clue starts hidden. "💡 Get a clue" shows it but pops a balloon, and that button turns off when only one balloon is left.
+  - Picking words: a word's length decides which setting it belongs to, so new words you add to the lists sort themselves.
+  - Long words: 9–10 letter words get smaller letter slots so they fit on a phone.
+
+  Checks: I played through it in Chrome using the browser's built-in voice, so no ElevenLabs credits were used:
+  - 3 wins moved Easy to Medium, and 3 more moved it to Hard.
+  - Buying a clue cost a balloon, and losing a round showed the word and its clue.
+  - The badge switched difficulty, and word order was random.
+  - A 10-letter word fits at 375px phone width.
+
+  Before you deploy: the game now has 807 spoken phrases (about 36k characters). About 16k characters are already recorded, so python3 build.py will record roughly 20k new characters on ElevenLabs. After that,
+  run npx wrangler deploy as usual.
+
+  I didn't add an automatic drop back to an easier setting after losses; the badge does that by hand. If you'd like it to step down after a few losses in a row, I can add that.
+
+------------------------------------------------------------------------------------------------------------------------
 ⏺ I added README.md to ~/sw/hangman with these sections:
 
   - Play locally: start the server and open it on port 8765.
